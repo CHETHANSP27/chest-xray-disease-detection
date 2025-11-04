@@ -1,0 +1,24 @@
+# Data
+data/raw/images/*
+data/processed/*
+*.jpg
+*.png
+*.jpeg
+
+# Models and checkpoints
+models/*.pth
+*.pth
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+
+# IDE
+.vscode/
+.idea/
+
+# Notebooks
+.ipynb_checkpoints/
