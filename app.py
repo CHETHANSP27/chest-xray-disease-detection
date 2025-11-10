@@ -6,9 +6,20 @@ import streamlit as st
 import torch
 import numpy as np
 from PIL import Image
-import cv2
 import os
 import sys
+
+# Configure environment
+os.environ['OPENCV_IO_ENABLE_JASPER'] = '1'
+
+# Safe import of OpenCV
+try:
+    import cv2
+except ImportError:
+    st.error("Failed to import OpenCV. Using PIL for image processing instead.")
+    USE_OPENCV = False
+else:
+    USE_OPENCV = True
 
 # Add src to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -83,6 +94,19 @@ def load_model():
     else:
         st.error("Model file not found!")
         return None
+    
+def process_image(image_file):
+    """Process uploaded image file"""
+    if USE_OPENCV:
+        # OpenCV processing path
+        file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
+        image = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    else:
+        # PIL fallback path
+        image = Image.open(image_file)
+        image = np.array(image)
+    return image
 
 def predict_diseases(model, image_tensor):
     """Make predictions"""
