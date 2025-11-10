@@ -61,19 +61,28 @@ st.markdown("""
 @st.cache_resource
 def load_model():
     """Load trained model"""
+    # model = create_model()
+    # model_path = os.path.join(Config.MODEL_DIR, 'best_model.pth')
+    
+    # if not os.path.exists(model_path):
+    #     st.error(f"Model not found at {model_path}. Please train the model first.")
+    #     return None
+    
+    # optimizer = torch.optim.Adam(model.parameters())
+    # model, _, _, _ = load_checkpoint(model, optimizer, model_path, Config.DEVICE)
+    # model = model.to(Config.DEVICE)
+    # model.eval()
+    
+    # return model
     model = create_model()
-    model_path = os.path.join(Config.MODEL_DIR, 'best_model.pth')
-    
-    if not os.path.exists(model_path):
-        st.error(f"Model not found at {model_path}. Please train the model first.")
+    model_path = "models/saved_models/best_model.pth"
+    if os.path.exists(model_path):
+        model, _, _, _ = load_checkpoint(model, None, model_path, 'cpu')  # Force CPU for cloud
+        model.eval()
+        return model
+    else:
+        st.error("Model file not found!")
         return None
-    
-    optimizer = torch.optim.Adam(model.parameters())
-    model, _, _, _ = load_checkpoint(model, optimizer, model_path, Config.DEVICE)
-    model = model.to(Config.DEVICE)
-    model.eval()
-    
-    return model
 
 def predict_diseases(model, image_tensor):
     """Make predictions"""
