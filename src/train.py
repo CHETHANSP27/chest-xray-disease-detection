@@ -25,6 +25,8 @@ class Trainer:
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.device = device
+        self.start_epoch = 0
+        self.best_val_loss = float('inf')
         if torch.cuda.device_count() > 1:
             print(f"Using {torch.cuda.device_count()} GPUs!")
             self.model = nn.DataParallel(self.model)
@@ -61,6 +63,60 @@ class Trainer:
             'train_auc': [],
             'val_auc': []
         }
+
+    def save_state(self, epoch, val_loss):
+        """Save complete training state"""
+        state = {
+            'epoch': epoch,
+            'model_state': self.model.state_dict(),
+            'optimizer_state': self.optimizer.state_dict(),
+            'best_val_loss': self.best_val_loss,
+            'train_history': self.train_history
+        }
+        
+        checkpoint_path = os.path.join(Config.CHECKPOINT_DIR, f'checkpoint_epoch_{epoch}.pth')
+        torch.save(state, checkpoint_path)
+        print(f"\nCheckpoint saved: {checkpoint_path}")
+
+    def load_state(self, checkpoint_path):
+        """Load training state from checkpoint"""
+        if os.path.exists(checkpoint_path):
+            state = torch.load(checkpoint_path)
+            self.model.load_state_dict(state['model_state'])
+            self.optimizer.load_state_dict(state['optimizer_state'])
+            self.start_epoch = state['epoch']
+            self.best_val_loss = state['best_val_loss']
+            self.train_history = state.get('train_history', [])
+            print(f"Resumed from epoch {self.start_epoch}")
+            return True
+        return False
+    
+    def _get_latest_checkpoint(self):
+        """Get the most recent checkpoint file"""
+        if not os.path.exists(Config.CHECKPOINT_DIR):
+            return None
+        checkpoints = [f for f in os.listdir(Config.CHECKPOINT_DIR) if f.startswith('checkpoint_epoch_')]
+        if not checkpoints:
+            return None
+        latest = max(checkpoints, key=lambda x: int(x.split('_')[-1].split('.')[0]))
+        return os.path.join(Config.CHECKPOINT_DIR, latest)
+
+    def save_progress(self, epoch, val_loss):
+        """Save training progress"""
+        progress = {
+            'epoch': epoch,
+            'model_state': self.model.state_dict(),
+            'optimizer_state': self.optimizer.state_dict(),
+            'scheduler_state': self.scheduler.state_dict(),
+            'best_val_loss': self.best_val_loss,
+            'history': self.history,
+            'early_stopping_counter': self.early_stopping.counter,
+            'early_stopping_best_score': self.early_stopping.best_score
+        }
+        
+        checkpoint_path = os.path.join(Config.CHECKPOINT_DIR, f'checkpoint_epoch_{epoch}.pth')
+        torch.save(progress, checkpoint_path)
+        print(f"\nProgress saved: {checkpoint_path}")
         
     def train_epoch(self):
         """Train for one epoch"""
@@ -135,72 +191,73 @@ class Trainer:
         return epoch_loss, metrics['mean_auc']
     
     def train(self, num_epochs):
-        """Complete training loop"""
-        print(f"\nStarting training for {num_epochs} epochs...")
+        """Train with support for incremental runs"""
+        os.makedirs(Config.CHECKPOINT_DIR, exist_ok=True)
+        os.makedirs(Config.MODEL_DIR, exist_ok=True)
+
+        # Load previous progress if exists
+        latest_checkpoint = self._get_latest_checkpoint()
+        if latest_checkpoint:
+            print(f"Resuming from checkpoint: {latest_checkpoint}")
+            checkpoint = torch.load(latest_checkpoint)
+            self.model.load_state_dict(checkpoint['model_state'])
+            self.optimizer.load_state_dict(checkpoint['optimizer_state'])
+            self.scheduler.load_state_dict(checkpoint['scheduler_state'])
+            start_epoch = checkpoint['epoch']
+            self.best_val_loss = checkpoint['best_val_loss']
+            self.history = checkpoint['history']
+            self.early_stopping.counter = checkpoint['early_stopping_counter']
+            self.early_stopping.best_score = checkpoint['early_stopping_best_score']
+        else:
+            start_epoch = 0
+
+        print(f"\nStarting training from epoch {start_epoch + 1}")
+        print(f"Training until epoch {min(start_epoch + Config.EPOCHS_PER_SESSION, num_epochs)}")
         print(f"Device: {self.device}")
-        
-        best_val_loss = float('inf')
-        
-        for epoch in range(num_epochs):
+
+        for epoch in range(start_epoch, min(start_epoch + Config.EPOCHS_PER_SESSION, num_epochs)):
             print(f"\nEpoch {epoch+1}/{num_epochs}")
             print("-" * 50)
-            
-            # Train
+
+            # Train and validate
             train_loss, train_auc = self.train_epoch()
-            print(f"Train Loss: {train_loss:.4f}, Train AUC: {train_auc:.4f}")
-            
-            # Validate
             val_loss, val_auc = self.validate()
-            print(f"Val Loss: {val_loss:.4f}, Val AUC: {val_auc:.4f}")
-            
-            # Update history
+
+            # Update history and print metrics
             self.history['train_loss'].append(train_loss)
             self.history['val_loss'].append(val_loss)
             self.history['train_auc'].append(train_auc)
             self.history['val_auc'].append(val_auc)
             
+            print(f"Train Loss: {train_loss:.4f}, Train AUC: {train_auc:.4f}")
+            print(f"Val Loss: {val_loss:.4f}, Val AUC: {val_auc:.4f}")
+
             # Learning rate scheduling
             self.scheduler.step(val_loss)
-            
+
+            # Save progress after each epoch
+            self.save_progress(epoch + 1, val_loss)
+
             # Save best model
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-                checkpoint_path = os.path.join(
-                    Config.MODEL_DIR,
-                    'best_model.pth'
-                )
-                save_checkpoint(
-                    self.model,
-                    self.optimizer,
-                    epoch,
-                    val_loss,
-                    checkpoint_path
-                )
-            
-            # Early stopping
+            if val_loss < self.best_val_loss:
+                self.best_val_loss = val_loss
+                best_model_path = os.path.join(Config.MODEL_DIR, 'best_model.pth')
+                save_checkpoint(self.model, self.optimizer, epoch, val_loss, best_model_path)
+                print(f"New best model saved! (Val Loss: {val_loss:.4f})")
+
+            # Early stopping check
             if self.early_stopping(val_loss):
                 print(f"\nEarly stopping triggered at epoch {epoch+1}")
                 break
-        
-        # Save final model
-        final_checkpoint_path = os.path.join(
-            Config.MODEL_DIR,
-            'final_model.pth'
-        )
-        save_checkpoint(
-            self.model,
-            self.optimizer,
-            epoch,
-            val_loss,
-            final_checkpoint_path
-        )
-        
-        # Plot training history
-        plot_path = os.path.join(Config.MODEL_DIR, 'training_history.png')
-        plot_training_history(self.history, plot_path)
-        
-        print("\nTraining completed!")
-        return self.history
+
+        remaining_epochs = num_epochs - (start_epoch + Config.EPOCHS_PER_SESSION)
+        if remaining_epochs > 0:
+            print(f"\nTraining paused. {remaining_epochs} epochs remaining.")
+            print("To continue training, run the script again.")
+        else:
+            print("\nTraining completed!")
+            plot_path = os.path.join(Config.MODEL_DIR, 'training_history.png')
+            plot_training_history(self.history, plot_path)
 
 def check_gpu():
     """Check GPU availability and properties"""

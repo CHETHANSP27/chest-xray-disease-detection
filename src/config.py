@@ -14,6 +14,12 @@ class Config:
     PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed')
     METADATA_DIR = os.path.join(DATA_DIR, 'metadata')
     MODEL_DIR = os.path.join(BASE_DIR, 'models', 'saved_models')
+
+    # Checkpoint settings
+    CHECKPOINT_DIR = "checkpoints"
+    RESUME_TRAINING = True  # Enable resuming from checkpoint
+    CURRENT_EPOCH = 0  # Track progress
+    EPOCHS_PER_SESSION = 2  # Number of epochs to run per session
     
     # Dataset Parameters
     IMAGE_SIZE = 224  # Standard size for DenseNet
