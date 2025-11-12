@@ -25,7 +25,11 @@ def load_checkpoint(model, optimizer, filepath, device):
     """Load model checkpoint"""
     checkpoint = torch.load(filepath, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    
+    # Only load optimizer state if optimizer is provided
+    if optimizer is not None:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    
     epoch = checkpoint['epoch']
     loss = checkpoint['loss']
     print(f"Checkpoint loaded: {filepath} (Epoch {epoch})")
