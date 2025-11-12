@@ -221,34 +221,29 @@ def main():
             st.header("🔥 Grad-CAM Explainability")
             st.info("Heatmaps show which regions of the X-ray influenced the model's decision.")
             
-            # Create Grad-CAM
-            gradcam = ChestXrayGradCAM(model)
-            original_image = prepare_image_for_cam(image_tensor)
+            try:
+                # Create Grad-CAM
+                gradcam = ChestXrayGradCAM(model)
+                original_image = prepare_image_for_cam(image_tensor)
+                
+                # Generate CAMs for top diseases
+                top_k = min(3, len(positive_diseases))
+                top_disease_indices = [Config.DISEASE_LABELS.index(d[0]) for d in positive_diseases[:top_k]]
+                
+                cam_cols = st.columns(top_k)
+                
+                for idx, (col, disease_idx) in enumerate(zip(cam_cols, top_disease_indices)):
+                    disease = Config.DISEASE_LABELS[disease_idx]
+                    
+                    # Generate and visualize CAM
+                    cam_image = gradcam.visualize(image_tensor, original_image, disease_idx)
+                    
+                    with col:
+                        st.image(cam_image, caption=f"{disease}", use_column_width=True)
             
-            # Generate CAMs for top diseases
-            top_k = min(3, len(positive_diseases))
-            top_disease_indices = [Config.DISEASE_LABELS.index(d[0]) for d in positive_diseases[:top_k]]
-            
-            cam_cols = st.columns(top_k)
-            
-            for idx, (col, disease_idx) in enumerate(zip(cam_cols, top_disease_indices)):
-                disease = Config.DISEASE_LABELS[disease_idx]
-                
-                # Generate CAM
-                from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
-                targets = [ClassifierOutputTarget(disease_idx)]
-                
-                # Ensure image_tensor is on CPU for GradCAM
-                image_tensor_cpu = image_tensor.to('cpu')
-                
-                grayscale_cam = gradcam.cam(input_tensor=image_tensor_cpu, targets=targets)
-                grayscale_cam = grayscale_cam[0, :]
-                
-                from pytorch_grad_cam.utils.image import show_cam_on_image
-                cam_image = show_cam_on_image(original_image, grayscale_cam, use_rgb=True)
-                
-                with col:
-                    st.image(cam_image, caption=f"{disease}", use_column_width=True)
+            except Exception as e:
+                st.warning(f"⚠️ Grad-CAM visualization failed: {str(e)}")
+                st.info("Predictions are still valid. Grad-CAM visualization is optional.")
         
         # Show all predictions
         if show_all_predictions:
