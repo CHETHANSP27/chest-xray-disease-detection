@@ -69,30 +69,23 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+
 @st.cache_resource
 def load_model():
-    """Load trained model"""
-    # model = create_model()
-    # model_path = os.path.join(Config.MODEL_DIR, 'best_model.pth')
+    """Load the trained model"""
+    # Force CPU for Streamlit deployment
+    device = 'cpu'
     
-    # if not os.path.exists(model_path):
-    #     st.error(f"Model not found at {model_path}. Please train the model first.")
-    #     return None
-    
-    # optimizer = torch.optim.Adam(model.parameters())
-    # model, _, _, _ = load_checkpoint(model, optimizer, model_path, Config.DEVICE)
-    # model = model.to(Config.DEVICE)
-    # model.eval()
-    
-    # return model
     model = create_model()
     model_path = "models/saved_models/best_model.pth"
+    
     if os.path.exists(model_path):
-        model, _, _, _ = load_checkpoint(model, None, model_path, 'cpu')  # Force CPU for cloud
+        model, _, _, _ = load_checkpoint(model, None, model_path, device)
         model.eval()
+        model.to(device)
         return model
     else:
-        st.error("Model file not found!")
+        st.error(f"Model file not found: {model_path}")
         return None
     
 def process_image(image_file):
@@ -110,8 +103,12 @@ def process_image(image_file):
 
 def predict_diseases(model, image_tensor):
     """Make predictions"""
+    # Force CPU for both model and tensor
+    device = 'cpu'
+    model = model.to(device)
+    image_tensor = image_tensor.to(device)
+    
     with torch.no_grad():
-        image_tensor = image_tensor.to(Config.DEVICE)
         predictions = model(image_tensor)
         predictions = predictions.cpu().numpy()[0]
     
@@ -238,11 +235,13 @@ def main():
                 disease = Config.DISEASE_LABELS[disease_idx]
                 
                 # Generate CAM
-                targets = [torch.nn.modules.activation.Sigmoid()]
                 from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
                 targets = [ClassifierOutputTarget(disease_idx)]
                 
-                grayscale_cam = gradcam.cam(input_tensor=image_tensor, targets=targets)
+                # Ensure image_tensor is on CPU for GradCAM
+                image_tensor_cpu = image_tensor.to('cpu')
+                
+                grayscale_cam = gradcam.cam(input_tensor=image_tensor_cpu, targets=targets)
                 grayscale_cam = grayscale_cam[0, :]
                 
                 from pytorch_grad_cam.utils.image import show_cam_on_image
