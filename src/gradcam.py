@@ -28,11 +28,11 @@ class ChestXrayGradCAM:
         
         print(f"GradCAM initialized with target layers: {target_layers}")
         
-        # Initialize GradCAM - FORCE use_cuda=False for Streamlit Cloud
+        # Initialize GradCAM - Device is auto-detected from model
+        # Since model is already on CPU, GradCAM will use CPU
         self.cam = GradCAM(
             model=model,
-            target_layers=target_layers,
-            use_cuda=False  # Always use CPU for Streamlit Cloud compatibility
+            target_layers=target_layers
         )
     
     def _get_target_layers(self, model):
