@@ -1,28 +1,31 @@
-# Deep Learning Frameworks - Use latest compatible versions
-torch
-torchvision
-torchaudio
+# Python 3.13.9 - More specific versions
 
-# Data Processing - NumPy 1.x for cv2 compatibility
-numpy>=1.24.0,<2.0.0
-pandas>=2.1.0
+# Core dependencies first
+numpy==1.26.4
+opencv-python-headless==4.10.0.84
 
-# Image Processing - CRITICAL: cv2 needs NumPy 1.x
-opencv-python-headless==4.8.1.78
-Pillow>=10.0.0
+# PyTorch ecosystem
+torch>=2.5.0
+torchvision>=0.20.0
+torchaudio>=2.5.0
 
-# ML & Visualization
-scikit-learn>=1.3.0
-matplotlib>=3.8.0
-seaborn>=0.13.0
+# Data processing
+pandas
+Pillow
+scikit-learn
+scipy
 
-# Model Interpretation & Augmentation
-grad-cam>=1.4.0
-albumentations>=1.3.0
+# Visualization
+matplotlib
+seaborn
+
+# Grad-CAM - Install after opencv
+pytorch-grad-cam
+albumentations
 
 # Streamlit
-streamlit>=1.28.0
+streamlit
 
 # Utilities
-tqdm>=4.66.0
-PyYAML>=6.0.0
+tqdm
+PyYAML
