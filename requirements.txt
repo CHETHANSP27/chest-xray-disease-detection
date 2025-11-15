@@ -1,31 +1,15 @@
-# Python 3.13.9 - More specific versions
 
-# Core dependencies first
-numpy==1.26.4
-opencv-python-headless==4.10.0.84
-
-# PyTorch ecosystem
-torch>=2.5.0
-torchvision>=0.20.0
-torchaudio>=2.5.0
-
-# Data processing
-pandas
+streamlit
+torch
+torchvision
+numpy<2
+opencv-python-headless
 Pillow
+pandas
 scikit-learn
-scipy
-
-# Visualization
 matplotlib
 seaborn
-
-# Grad-CAM - Install after opencv
 pytorch-grad-cam
 albumentations
-
-# Streamlit
-streamlit
-
-# Utilities
-tqdm
 PyYAML
+tqdm
