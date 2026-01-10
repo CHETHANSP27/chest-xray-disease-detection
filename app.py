@@ -8,6 +8,7 @@ import numpy as np
 from PIL import Image
 import os
 import sys
+import warnings
 
 # Configure environment
 os.environ['OPENCV_IO_ENABLE_JASPER'] = '1'
@@ -15,20 +16,25 @@ os.environ['OPENCV_IO_ENABLE_JASPER'] = '1'
 # Safe import of OpenCV
 try:
     import cv2
-except ImportError:
-    st.error("Failed to import OpenCV. Using PIL for image processing instead.")
-    USE_OPENCV = False
-else:
     USE_OPENCV = True
+except ImportError:
+    USE_OPENCV = False
+    warnings.warn("OpenCV not available. Using PIL for image processing instead.")
 
 # Add src to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from src.config import Config
 from src.model import create_model
-from src.gradcam import ChestXrayGradCAM, prepare_image_for_cam
 from src.data_loader import load_single_image
 from src.utils import load_checkpoint
+
+# Safe import of Grad-CAM
+try:
+    from src.gradcam import ChestXrayGradCAM, prepare_image_for_cam, GRADCAM_AVAILABLE
+except ImportError:
+    GRADCAM_AVAILABLE = False
+    warnings.warn("Grad-CAM not available. Visualization will be disabled.")
 
 # Page configuration
 st.set_page_config(
@@ -217,7 +223,7 @@ def main():
                     )
         
         # Grad-CAM visualization
-        if show_gradcam and len(positive_diseases) > 0:
+        if show_gradcam and len(positive_diseases) > 0 and GRADCAM_AVAILABLE:
             st.header("🔥 Grad-CAM Explainability")
             st.info("Heatmaps show which regions of the X-ray influenced the model's decision.")
             
@@ -246,8 +252,10 @@ def main():
             
             except Exception as e:
                 st.warning(f"⚠️ Grad-CAM visualization failed: {str(e)}")
-                st.debug(f"Error details: {repr(e)}")
                 st.info("Predictions are still valid. Grad-CAM visualization is optional.")
+        
+        elif show_gradcam and not GRADCAM_AVAILABLE:
+            st.info("ℹ️ Grad-CAM visualization is not available in this deployment. Predictions are still accurate and valid.")
         
         # Show all predictions
         if show_all_predictions:

@@ -4,9 +4,17 @@ Grad-CAM implementation for chest X-ray disease detection
 
 import torch
 import numpy as np
-from pytorch_grad_cam import GradCAM
-from pytorch_grad_cam.utils.image import show_cam_on_image
-from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+import warnings
+
+# Handle optional pytorch_grad_cam dependency
+try:
+    from pytorch_grad_cam import GradCAM
+    from pytorch_grad_cam.utils.image import show_cam_on_image
+    from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+    GRADCAM_AVAILABLE = True
+except ImportError as e:
+    GRADCAM_AVAILABLE = False
+    warnings.warn(f"pytorch_grad_cam not available: {e}. Grad-CAM visualization will be disabled.")
 
 
 class ChestXrayGradCAM:
@@ -17,6 +25,12 @@ class ChestXrayGradCAM:
         Args:
             model: Trained PyTorch model
         """
+        if not GRADCAM_AVAILABLE:
+            raise RuntimeError(
+                "Grad-CAM is not available. Please ensure pytorch_grad_cam is installed "
+                "and all dependencies (including opencv) are properly configured."
+            )
+        
         self.model = model
         
         # Ensure model is in eval mode and on CPU
