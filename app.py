@@ -170,7 +170,7 @@ def main():
         with col1:
             st.subheader("📸 Original X-Ray")
             image = Image.open(uploaded_file).convert('RGB')
-            st.image(image, use_column_width=True)
+            st.image(image, use_container_width=True)
         
         # Make prediction
         with st.spinner("Analyzing X-ray..."):
@@ -222,9 +222,12 @@ def main():
             st.info("Heatmaps show which regions of the X-ray influenced the model's decision.")
             
             try:
+                # Ensure tensor is on CPU
+                image_tensor_cpu = image_tensor.to('cpu').detach()
+                
                 # Create Grad-CAM
                 gradcam = ChestXrayGradCAM(model)
-                original_image = prepare_image_for_cam(image_tensor)
+                original_image = prepare_image_for_cam(image_tensor_cpu)
                 
                 # Generate CAMs for top diseases
                 top_k = min(3, len(positive_diseases))
@@ -236,13 +239,14 @@ def main():
                     disease = Config.DISEASE_LABELS[disease_idx]
                     
                     # Generate and visualize CAM
-                    cam_image = gradcam.visualize(image_tensor, original_image, disease_idx)
+                    cam_image = gradcam.visualize(image_tensor_cpu, original_image, disease_idx)
                     
                     with col:
-                        st.image(cam_image, caption=f"{disease}", use_column_width=True)
+                        st.image(cam_image, caption=f"{disease}", use_container_width=True)
             
             except Exception as e:
                 st.warning(f"⚠️ Grad-CAM visualization failed: {str(e)}")
+                st.debug(f"Error details: {repr(e)}")
                 st.info("Predictions are still valid. Grad-CAM visualization is optional.")
         
         # Show all predictions

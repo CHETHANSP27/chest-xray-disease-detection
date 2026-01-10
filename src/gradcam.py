@@ -103,13 +103,21 @@ class ChestXrayGradCAM:
             target_class: Target class index
             
         Returns:
-            numpy array: Visualization image
+            numpy array: Visualization image in [0, 255] range
         """
         # Generate heatmap
         heatmap = self.generate_heatmap(input_tensor, target_class)
         
+        # Ensure original image is in correct shape and range
+        if original_image.max() > 1.0:
+            original_image = original_image / 255.0
+        
         # Overlay on image
         visualization = show_cam_on_image(original_image, heatmap, use_rgb=True)
+        
+        # Convert to 0-255 range for PIL
+        if visualization.max() <= 1.0:
+            visualization = (visualization * 255).astype(np.uint8)
         
         return visualization
 
